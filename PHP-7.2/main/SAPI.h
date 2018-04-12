@@ -215,36 +215,39 @@ SAPI_API double sapi_get_request_time(void);
 SAPI_API void sapi_terminate_process(void);
 END_EXTERN_C()
 
+// 在各个服务器抽象层之间遵守着相同的约定，这里我们称之为SAPI接口。
+// 每个SAPI实现都是一个_sapi_module_struct结构体变量。（SAPI接口）。
+// 在PHP的源码中，当需要调用服务器相关信息时，全部通过SAPI接口中对应方法调用实现， 而这对应的方法在各个服务器抽象层实现时都会有各自的实现。
 struct _sapi_module_struct {
-	char *name;
-	char *pretty_name;
+	char *name;                                                 // 名字 标识用
+	char *pretty_name;                                          // 更好理解的名字
 
-	int (*startup)(struct _sapi_module_struct *sapi_module);
-	int (*shutdown)(struct _sapi_module_struct *sapi_module);
+	int (*startup)(struct _sapi_module_struct *sapi_module);    // 启动函数 当SAPI初始化时，首先会调用该函数。如果服务器处理多个请求时，该函数只会调用一次。
+	int (*shutdown)(struct _sapi_module_struct *sapi_module);   // 关闭方法 它用来释放所有SAPI的数据结构，内存等。
 
-	int (*activate)(void);
-	int (*deactivate)(void);
+	int (*activate)(void);                                      // 激活 此函数会在每个请求开始时调用，它会再次初始化每个请求前的数据结构。
+	int (*deactivate)(void);                                    // 停用 此函数会在每个请求结束时调用，它用来确保释放activate中初始化的数据结构
 
-	size_t (*ub_write)(const char *str, size_t str_length);
-	void (*flush)(void *server_context);
-	zend_stat_t *(*get_stat)(void);
-	char *(*getenv)(char *name, size_t name_len);
+	size_t (*ub_write)(const char *str, size_t str_length);     // 不缓存的写操作 unbuffered write 用来将PHP的数据输出给客户端
+	void (*flush)(void *server_context);                        // flush  刷新输出，在CLI模式下通过使用C语言的库函数fflush实现，在php_mode5模式下，使用Apache的提供的函数rflush实现。
+	zend_stat_t *(*get_stat)(void);                             // get uid
+	char *(*getenv)(char *name, size_t name_len);               // getenv
 
-	void (*sapi_error)(int type, const char *error_msg, ...) ZEND_ATTRIBUTE_FORMAT(printf, 2, 3);
+	void (*sapi_error)(int type, const char *error_msg, ...) ZEND_ATTRIBUTE_FORMAT(printf, 2, 3);                       //error handler 报告错误用，大多数的SAPI都是使用的PHP的默认实现php_error
 
-	int (*header_handler)(sapi_header_struct *sapi_header, sapi_header_op_enum op, sapi_headers_struct *sapi_headers);
-	int (*send_headers)(sapi_headers_struct *sapi_headers);
-	void (*send_header)(sapi_header_struct *sapi_header, void *server_context);
+	int (*header_handler)(sapi_header_struct *sapi_header, sapi_header_op_enum op, sapi_headers_struct *sapi_headers);  //header handler
+	int (*send_headers)(sapi_headers_struct *sapi_headers);                     // send headers handler
+	void (*send_header)(sapi_header_struct *sapi_header, void *server_context); // send header handler  发送头部信息，此方法一般的SAPI都会定制，其所不同的是，有些的会调服务器自带的（如apache），有些需要自己实现（FastCGI）
 
-	size_t (*read_post)(char *buffer, size_t count_bytes);
-	char *(*read_cookies)(void);
+	size_t (*read_post)(char *buffer, size_t count_bytes);      // read POST data  此函数和read_cookie一样也是在SAPI激活是调用，他与请求的方法相关，当请求的方式是POST时，程序会操作$_POST/$HTTP_RAS_POST_DATA等变量
+	char *(*read_cookies)(void);                                // read Cookies 在SAPI激活时，程序会调用次函数，并且将此函数获取的值赋给SG request_info.cookie_data 在CLI模式下，函数会返回NULL
 
-	void (*register_server_variables)(zval *track_vars_array);
-	void (*log_message)(char *message, int syslog_type_int);
-	double (*get_request_time)(void);
-	void (*terminate_process)(void);
+	void (*register_server_variables)(zval *track_vars_array);  // register server variables
+	void (*log_message)(char *message, int syslog_type_int);    // Log message
+	double (*get_request_time)(void);                           // Request Time
+	void (*terminate_process)(void);                            // Child Terminate
 
-	char *php_ini_path_override;
+	char *php_ini_path_override;                                // 覆盖的ini路径
 
 	void (*default_post_reader)(void);
 	void (*treat_data)(int arg, char *str, zval *destArray);

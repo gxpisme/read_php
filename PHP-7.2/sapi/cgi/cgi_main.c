@@ -1967,6 +1967,7 @@ int main(int argc, char *argv[])
 	}
 
 	/* startup after we get the above ini override se we get things right */
+    // cgi模式的启动方法
 	if (cgi_sapi_module.startup(&cgi_sapi_module) == FAILURE) {
 #ifdef ZTS
 		tsrm_shutdown();
