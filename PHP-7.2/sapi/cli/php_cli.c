@@ -392,7 +392,9 @@ static void sapi_cli_log_message(char *message, int syslog_type_int) /* {{{ */
 
 static int sapi_cli_deactivate(void) /* {{{ */
 {
+    // int fflush(FILE *stream) 刷新流 stream 的输出缓冲区。
 	fflush(stdout);
+    // 如果存在argv的值，就释放  php test.php xxx, 这个xxx就是argv0
 	if(SG(request_info).argv0) {
 		free(SG(request_info).argv0);
 		SG(request_info).argv0 = NULL;
@@ -401,6 +403,7 @@ static int sapi_cli_deactivate(void) /* {{{ */
 }
 /* }}} */
 
+// 命令行模式下 不存在cookie信息，因此为NULL
 static char* sapi_cli_read_cookies(void) /* {{{ */
 {
 	return NULL;
@@ -426,6 +429,7 @@ static void sapi_cli_send_header(sapi_header_struct *sapi_header, void *server_c
 }
 /* }}} */
 
+// 调用php_module_startup
 static int php_cli_startup(sapi_module_struct *sapi_module) /* {{{ */
 {
 	if (php_module_startup(sapi_module, NULL, 0)==FAILURE) {
@@ -473,7 +477,7 @@ static sapi_module_struct cli_sapi_module = {
 	sapi_cli_send_headers,			/* send headers handler */
 	sapi_cli_send_header,			/* send header handler */
 
-	NULL,				            /* read POST data */
+	NULL,				            /* read POST data 命令行模式下 没有post数据 */
 	sapi_cli_read_cookies,          /* read Cookies */
 
 	sapi_cli_register_variables,	/* register server variables */

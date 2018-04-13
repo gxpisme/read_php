@@ -471,6 +471,7 @@ void fcgi_log(int type, const char *fmt, ...)
 }
 /* }}} */
 
+// fpm模式下 获取post数据
 static size_t sapi_cgi_read_post(char *buffer, size_t count_bytes) /* {{{ */
 {
 	uint32_t read_bytes = 0;
@@ -540,6 +541,7 @@ static char *_sapi_cgibin_putenv(char *name, char *value) /* {{{ */
 /* }}} */
 #endif
 
+// fpm模式下 读取COOKIE值
 static char *sapi_cgi_read_cookies(void) /* {{{ */
 {
 	fcgi_request *request = (fcgi_request*) SG(server_context);
@@ -833,6 +835,7 @@ static int sapi_cgi_deactivate(void) /* {{{ */
 }
 /* }}} */
 
+// 调用php_module_startup
 static int php_cgi_startup(sapi_module_struct *sapi_module) /* {{{ */
 {
 	if (php_module_startup(sapi_module, &cgi_module_entry, 1) == FAILURE) {

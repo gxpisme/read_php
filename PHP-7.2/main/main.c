@@ -2079,6 +2079,7 @@ void dummy_invalid_parameter_handler(
 #endif
 
 /* {{{ php_module_startup
+ * 启动函数 当SAPI初始化时，首先会调用该函数。如果服务器处理多个请求时，该函数只会调用一次。
  */
 int php_module_startup(sapi_module_struct *sf, zend_module_entry *additional_modules, uint32_t num_additional_modules)
 {
@@ -2420,6 +2421,7 @@ void php_module_shutdown_for_exec(void)
 }
 
 /* {{{ php_module_shutdown_wrapper
+ * 关闭方法 它用来释放所有SAPI的数据结构，内存等。
  */
 int php_module_shutdown_wrapper(sapi_module_struct *sapi_globals)
 {

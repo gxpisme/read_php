@@ -300,6 +300,7 @@ static void print_extensions(void)
 #define STDOUT_FILENO 1
 #endif
 
+//  这个hanlder告诉了Zend，如何输出数据  而对于CGI来说，只是简单的写到stdout
 static inline size_t sapi_cgi_single_write(const char *str, size_t str_length)
 {
 #ifdef PHP_WRITE_STDOUT
@@ -483,14 +484,17 @@ static int sapi_cgi_send_headers(sapi_headers_struct *sapi_headers)
 # define STDIN_FILENO 0
 #endif
 
+// cgi 模式下读取 post数据
 static size_t sapi_cgi_read_post(char *buffer, size_t count_bytes)
 {
 	size_t read_bytes = 0;
 	int tmp_read_bytes;
 	size_t remaining_bytes;
 
+    // SG宏主要用于获取SAPI层范围内的全局变量
 	assert(SG(request_info).content_length >= SG(read_post_bytes));
 
+    // 剩余的字节数= 请求的长度 - post的字节数
 	remaining_bytes = (size_t)(SG(request_info).content_length - SG(read_post_bytes));
 
 	count_bytes = MIN(count_bytes, remaining_bytes);
@@ -649,6 +653,7 @@ static char *_sapi_cgi_putenv(char *name, size_t name_len, char *value)
 	return getenv(name);
 }
 
+// cgi模式下 读取cookie值
 static char *sapi_cgi_read_cookies(void)
 {
 	return getenv("HTTP_COOKIE");
@@ -869,6 +874,7 @@ static void php_cgi_ini_activate_user_config(char *path, size_t path_len, const 
 }
 /* }}} */
 
+// 此函数会在每个请求开始时调用，它会再次初始化每个请求前的数据结构。
 static int sapi_cgi_activate(void)
 {
 	char *path, *doc_root, *server_name;
@@ -953,6 +959,9 @@ static int sapi_cgi_activate(void)
 	return SUCCESS;
 }
 
+
+// 这个是对应与activate的函数，它会提供一个handler，用来处理收尾工作
+// 对于CGI来说，他只是简单的刷新缓冲区，用以保证用户在Zend关闭前得到所有的输出数据
 static int sapi_cgi_deactivate(void)
 {
 	/* flush only when SAPI was started. The reasons are:
@@ -973,6 +982,7 @@ static int sapi_cgi_deactivate(void)
 	return SUCCESS;
 }
 
+// 调用php_module_startup
 static int php_cgi_startup(sapi_module_struct *sapi_module)
 {
 	if (php_module_startup(sapi_module, &cgi_module_entry, 1) == FAILURE) {
@@ -2179,8 +2189,8 @@ consult the installation file that came with this distribution, or visit \n\
 			int i;
 
 			ZeroMemory(&kid_cgi_ps, sizeof(kid_cgi_ps));
-			kids = children < WIN32_MAX_SPAWN_CHILDREN ? children : WIN32_MAX_SPAWN_CHILDREN; 
-			
+			kids = children < WIN32_MAX_SPAWN_CHILDREN ? children : WIN32_MAX_SPAWN_CHILDREN;
+
 			SetConsoleCtrlHandler(fastcgi_cleanup, TRUE);
 
 			/* kids will inherit the env, don't let them spawn */
@@ -2277,10 +2287,10 @@ consult the installation file that came with this distribution, or visit \n\
 						fprintf(stderr, "unable to spawn: [0x%08lx]: %s\n", err, err_text);
 					}
 				}
-				
+
 				WaitForMultipleObjects(kids, kid_cgi_ps, FALSE, INFINITE);
 			}
-			
+
 			/* restore my env */
 			SetEnvironmentVariable("PHP_FCGI_CHILDREN", kid_buf);
 
@@ -2761,7 +2771,7 @@ fastcgi_request_done:
 			}
 			/* end of fastcgi loop */
 		}
-		
+
 		if (request) {
 			fcgi_destroy_request(request);
 		}

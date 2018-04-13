@@ -80,6 +80,8 @@ typedef struct {
 	const char *request_method;
 	char *query_string;
 	char *cookie_data;
+
+    // 请求内容的长度
 	zend_long content_length;
 
 	char *path_translated;
@@ -118,8 +120,9 @@ typedef struct {
 
 typedef struct _sapi_globals_struct {
 	void *server_context;
-	sapi_request_info request_info;
+	sapi_request_info request_info;  // 请求信息
 	sapi_headers_struct sapi_headers;
+    // post数据字节数
 	int64_t read_post_bytes;
 	unsigned char post_read;
 	unsigned char headers_sent;
@@ -137,6 +140,7 @@ typedef struct _sapi_globals_struct {
 } sapi_globals_struct;
 
 
+// SG宏主要用于获取SAPI层范围内的全局变量
 BEGIN_EXTERN_C()
 #ifdef ZTS
 # define SG(v) ZEND_TSRMG(sapi_globals_id, sapi_globals_struct *, v)
