@@ -140,14 +140,15 @@ void zend_const_expr_to_zval(zval *result, zend_ast *ast);
 
 typedef int (*user_opcode_handler_t) (zend_execute_data *execute_data);
 
+//opcode由如下的结构体表示
 struct _zend_op {
-	const void *handler;
+	const void *handler; // 执行该opcode时 调用的处理函数
 	znode_op op1;
 	znode_op op2;
-	znode_op result;
-	uint32_t extended_value;
+	znode_op result; //保存该指令执行完成后的结果
+	uint32_t extended_value; // 保存了脚本实际执行时需要更多的信息
 	uint32_t lineno;
-	zend_uchar opcode;
+	zend_uchar opcode; // opcode 代码
 	zend_uchar op1_type;
 	zend_uchar op2_type;
 	zend_uchar result_type;
@@ -360,12 +361,13 @@ typedef struct _zend_internal_function_info {
 	zend_bool _is_variadic;
 } zend_internal_function_info;
 
+// PHP脚本编译为opcode保存在op_array中，其内部存储结构如下
 struct _zend_op_array {
 	/* Common elements */
 	zend_uchar type;
 	zend_uchar arg_flags[3]; /* bitset of arg_info.pass_by_reference */
 	uint32_t fn_flags;
-	zend_string *function_name;
+	zend_string *function_name; // 如果是用户定义的函数，则这里保存函数的名字
 	zend_class_entry *scope;
 	zend_function *prototype;
 	uint32_t num_args;
@@ -376,7 +378,7 @@ struct _zend_op_array {
 	uint32_t *refcount;
 
 	uint32_t last;
-	zend_op *opcodes;
+	zend_op *opcodes;   // opcode数据
 
 	int last_var;
 	uint32_t T;

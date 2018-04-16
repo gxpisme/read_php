@@ -218,6 +218,8 @@ ZEND_API void  ZEND_FASTCALL zend_hash_internal_pointer_end_ex(HashTable *ht, Ha
 	zend_hash_get_current_key_zval_ex(ht, key, &(ht)->nInternalPointer)
 #define zend_hash_get_current_key_type(ht) \
 	zend_hash_get_current_key_type_ex(ht, &(ht)->nInternalPointer)
+
+// &(ht)->nInternalPointer 当前指针的位置
 #define zend_hash_get_current_data(ht) \
 	zend_hash_get_current_data_ex(ht, &(ht)->nInternalPointer)
 #define zend_hash_internal_pointer_reset(ht) \

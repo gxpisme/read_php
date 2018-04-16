@@ -1473,6 +1473,8 @@ ZEND_API void zend_try_exception_handler() /* {{{ */
 	}
 } /* }}} */
 
+// 执行PHP的脚本
+// 建议看下图：https://github.com/pangudashu/php7-internal/blob/master/img/zend_compile_process.png
 ZEND_API int zend_execute_scripts(int type, zval *retval, int file_count, ...) /* {{{ */
 {
 	va_list files;

@@ -1238,7 +1238,9 @@ PHP_FUNCTION(reset)
 /* }}} */
 
 /* {{{ proto mixed current(array array_arg)
-   Return the element currently pointed to by the internal array pointer */
+   Return the element currently pointed to by the internal array pointer
+   返回当前指针(nInternalPointer)指向的值
+   */
 PHP_FUNCTION(current)
 {
 	HashTable *array;
@@ -4829,7 +4831,7 @@ static void php_array_intersect(INTERNAL_FUNCTION_PARAMETERS, int behavior, int 
 		ZVAL_UNDEF(&list->val);
 		if (hash->nNumOfElements > 1) {
 			if (behavior == INTERSECT_NORMAL) {
-				zend_sort((void *) lists[i], hash->nNumOfElements, 
+				zend_sort((void *) lists[i], hash->nNumOfElements,
 						sizeof(Bucket), intersect_data_compare_func, (swap_func_t)zend_hash_bucket_swap);
 			} else if (behavior & INTERSECT_ASSOC) { /* triggered also when INTERSECT_KEY */
 				zend_sort((void *) lists[i], hash->nNumOfElements,

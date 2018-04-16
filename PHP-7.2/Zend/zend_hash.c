@@ -2061,6 +2061,8 @@ ZEND_API void ZEND_FASTCALL zend_hash_internal_pointer_reset_ex(HashTable *ht, H
 
 /* This function will be extremely optimized by remembering
  * the end of the list
+ *
+ * list中最后一个值
  */
 ZEND_API void ZEND_FASTCALL zend_hash_internal_pointer_end_ex(HashTable *ht, HashPosition *pos)
 {
@@ -2184,6 +2186,8 @@ ZEND_API int ZEND_FASTCALL zend_hash_get_current_key_type_ex(HashTable *ht, Hash
 }
 
 
+// current函数传过来的为ht, &(ht)->nInternalPointer
+// 获取ht的偏移量为pos的值
 ZEND_API zval* ZEND_FASTCALL zend_hash_get_current_data_ex(HashTable *ht, HashPosition *pos)
 {
 	uint32_t idx = *pos;
