@@ -438,6 +438,7 @@ END_EXTERN_C()
 	}
 
 
+// 宏 获取变量中的信息
 #define Z_LVAL(zval)			(zval).value.lval
 #define Z_BVAL(zval)			((zend_bool)(zval).value.lval)
 #define Z_DVAL(zval)			(zval).value.dval
@@ -454,6 +455,7 @@ END_EXTERN_C()
 #define Z_RESVAL(zval)			(zval).value.lval
 #define Z_OBJDEBUG(zval,is_tmp)	(Z_OBJ_HANDLER((zval),get_debug_info)?Z_OBJ_HANDLER((zval),get_debug_info)(&(zval),&is_tmp TSRMLS_CC):(is_tmp=0,Z_OBJ_HANDLER((zval),get_properties)?Z_OBJPROP(zval):NULL))
 
+// 宏 获取指针变量中的信息
 #define Z_LVAL_P(zval_p)		Z_LVAL(*zval_p)
 #define Z_BVAL_P(zval_p)		Z_BVAL(*zval_p)
 #define Z_DVAL_P(zval_p)		Z_DVAL(*zval_p)
@@ -470,6 +472,8 @@ END_EXTERN_C()
 #define Z_OBJ_HANDLER_P(zval_p, h)	Z_OBJ_HANDLER(*zval_p, h)
 #define Z_OBJDEBUG_P(zval_p,is_tmp)	Z_OBJDEBUG(*zval_p,is_tmp)
 
+
+// 宏 获取两个指针变量中的信息
 #define Z_LVAL_PP(zval_pp)		Z_LVAL(**zval_pp)
 #define Z_BVAL_PP(zval_pp)		Z_BVAL(**zval_pp)
 #define Z_DVAL_PP(zval_pp)		Z_DVAL(**zval_pp)
@@ -486,6 +490,7 @@ END_EXTERN_C()
 #define Z_OBJ_HANDLER_PP(zval_p, h)		Z_OBJ_HANDLER(**zval_p, h)
 #define Z_OBJDEBUG_PP(zval_pp,is_tmp)	Z_OBJDEBUG(**zval_pp,is_tmp)
 
+// 宏 变量的类型
 #define Z_TYPE(zval)		(zval).type
 #define Z_TYPE_P(zval_p)	Z_TYPE(*zval_p)
 #define Z_TYPE_PP(zval_pp)	Z_TYPE(**zval_pp)
@@ -601,7 +606,7 @@ static zend_always_inline int fast_add_function(zval *result, zval *op1, zval *o
 		__asm__(
 			"movl	(%1), %%eax\n\t"
 			"addl   (%2), %%eax\n\t"
-			"jo     0f\n\t"     
+			"jo     0f\n\t"
 			"movl   %%eax, (%0)\n\t"
 			"movb   %3, %c5(%0)\n\t"
 			"jmp    1f\n"
@@ -612,7 +617,7 @@ static zend_always_inline int fast_add_function(zval *result, zval *op1, zval *o
 			"movb   %4, %c5(%0)\n\t"
 			"fstpl	(%0)\n"
 			"1:"
-			: 
+			:
 			: "r"(&result->value),
 			  "r"(&op1->value),
 			  "r"(&op2->value),
@@ -624,7 +629,7 @@ static zend_always_inline int fast_add_function(zval *result, zval *op1, zval *o
 		__asm__(
 			"movq	(%1), %%rax\n\t"
 			"addq   (%2), %%rax\n\t"
-			"jo     0f\n\t"     
+			"jo     0f\n\t"
 			"movq   %%rax, (%0)\n\t"
 			"movb   %3, %c5(%0)\n\t"
 			"jmp    1f\n"
@@ -635,7 +640,7 @@ static zend_always_inline int fast_add_function(zval *result, zval *op1, zval *o
 			"movb   %4, %c5(%0)\n\t"
 			"fstpl	(%0)\n"
 			"1:"
-			: 
+			:
 			: "r"(&result->value),
 			  "r"(&op1->value),
 			  "r"(&op2->value),
@@ -687,7 +692,7 @@ static zend_always_inline int fast_sub_function(zval *result, zval *op1, zval *o
 		__asm__(
 			"movl	(%1), %%eax\n\t"
 			"subl   (%2), %%eax\n\t"
-			"jo     0f\n\t"     
+			"jo     0f\n\t"
 			"movl   %%eax, (%0)\n\t"
 			"movb   %3, %c5(%0)\n\t"
 			"jmp    1f\n"
@@ -702,7 +707,7 @@ static zend_always_inline int fast_sub_function(zval *result, zval *op1, zval *o
 			"movb   %4, %c5(%0)\n\t"
 			"fstpl	(%0)\n"
 			"1:"
-			: 
+			:
 			: "r"(&result->value),
 			  "r"(&op1->value),
 			  "r"(&op2->value),
@@ -714,7 +719,7 @@ static zend_always_inline int fast_sub_function(zval *result, zval *op1, zval *o
 		__asm__(
 			"movq	(%1), %%rax\n\t"
 			"subq   (%2), %%rax\n\t"
-			"jo     0f\n\t"     
+			"jo     0f\n\t"
 			"movq   %%rax, (%0)\n\t"
 			"movb   %3, %c5(%0)\n\t"
 			"jmp    1f\n"
@@ -729,7 +734,7 @@ static zend_always_inline int fast_sub_function(zval *result, zval *op1, zval *o
 			"movb   %4, %c5(%0)\n\t"
 			"fstpl	(%0)\n"
 			"1:"
-			: 
+			:
 			: "r"(&result->value),
 			  "r"(&op1->value),
 			  "r"(&op2->value),

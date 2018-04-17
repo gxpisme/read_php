@@ -54,9 +54,10 @@ typedef unsigned int zend_object_handle;
 typedef struct _zend_object_handlers zend_object_handlers;
 typedef struct _zval_struct zval;
 
+// 对象Object结构体，php对象只有在运行时才会被创建。
 typedef struct _zend_object_value {
-	zend_object_handle handle;
-	const zend_object_handlers *handlers;
+	zend_object_handle handle; // unsigned int类型，EG(objects_store).object_buckets的索引 object对象值内容的zend_object_handle域就是当前对象在对象池中所在的索引
+	const zend_object_handlers *handlers; // handlers字段则是将对象进行操作时的处理函数保存起来
 } zend_object_value;
 
 #endif /* ZEND_TYPES_H */

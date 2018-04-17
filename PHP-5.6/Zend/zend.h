@@ -5,7 +5,7 @@
    | Copyright (c) 1998-2016 Zend Technologies Ltd. (http://www.zend.com) |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.00 of the Zend license,     |
-   | that is bundled with this package in the file LICENSE, and is        | 
+   | that is bundled with this package in the file LICENSE, and is        |
    | available through the world-wide-web at the following url:           |
    | http://www.zend.com/license/2_00.txt.                                |
    | If you did not receive a copy of the Zend license and are unable to  |
@@ -319,15 +319,20 @@ typedef struct _zend_object {
 #include "zend_object_handlers.h"
 #include "zend_ast.h"
 
+//使用联合体而不是用结构体是出于空间利用率的考虑，
+//因为一个变量同时只能属于一种类型。
+//如果使用结构体的话将会不必要的浪费空间，
+//而PHP中的所有逻辑都围绕变量来进行的，
+//这样的话，内存浪费将是十分大的。这种做法成本小但收益非常大
 typedef union _zvalue_value {
-	long lval;					/* long value */
+	long lval;					/* long value  这个字段也用于存储整型*/
 	double dval;				/* double value */
-	struct {
-		char *val;
-		int len;
-	} str;
-	HashTable *ht;				/* hash table value */
-	zend_object_value obj;
+	struct {                    // 字符串string，字符串类型标识和其他数据类型一样，不过在存储字符串时多了一个字符串长度的字段
+		char *val;              // C中字符串是以\0结尾的字符数组，这里多存储了字符串的长度，这和我们在设计数据库时增加的冗余字段异曲同工。 因为要实时获取到字符串的长度的时间复杂度是O(n)，而字符串的操作在PHP中是非常频繁的，
+		int len;                // 这样能避免重复计算字符串的长度， 这能节省大量的时间，是空间换时间的做法。 这么看在PHP中strlen()函数可以在常数时间内获取到字符串的长度。
+	} str;                      // 计算机语言中字符串的操作都非常之多，所以大部分高级语言中都会存储字符串的长度。
+	HashTable *ht;				/* hash table value  数组*/
+	zend_object_value obj;      // 对象Object
 	zend_ast *ast;
 } zvalue_value;
 
@@ -337,7 +342,7 @@ struct _zval_struct {
 	/* Variable information */
 	zvalue_value value;		/* value 存储变量的值*/
 	zend_uint refcount__gc; // 表示引用计数
-	zend_uchar type;	/* active type 存储变量的类型*/
+	zend_uchar type;	/* active type 存储变量的类型 type字段就是实现弱类型最关键的字段了*/
 	zend_uchar is_ref__gc; // 表示是否引用
 };
 
@@ -446,9 +451,9 @@ typedef struct _zend_unserialize_data zend_unserialize_data;
 struct _zend_trait_method_reference {
 	const char* method_name;
 	unsigned int mname_len;
-	
+
 	zend_class_entry *ce;
-	
+
 	const char* class_name;
 	unsigned int cname_len;
 };
@@ -456,20 +461,20 @@ typedef struct _zend_trait_method_reference	zend_trait_method_reference;
 
 struct _zend_trait_precedence {
 	zend_trait_method_reference *trait_method;
-	
+
 	zend_class_entry** exclude_from_classes;
 };
 typedef struct _zend_trait_precedence zend_trait_precedence;
 
 struct _zend_trait_alias {
 	zend_trait_method_reference *trait_method;
-	
+
 	/**
 	* name for method to be added
 	*/
 	const char* alias;
 	unsigned int alias_len;
-	
+
 	/**
 	* modifiers to be set on trait method
 	*/
@@ -522,7 +527,7 @@ struct _zend_class_entry {
 
 	zend_class_entry **interfaces;
 	zend_uint num_interfaces;
-	
+
 	zend_class_entry **traits;
 	zend_uint num_traits;
 	zend_trait_alias **trait_aliases;
@@ -810,7 +815,7 @@ END_EXTERN_C()
 		FREE_ZVAL(pzv);						\
 	}										\
 	INIT_PZVAL(&(zv));
-	
+
 #define MAKE_COPY_ZVAL(ppzv, pzv) 	\
 	INIT_PZVAL_COPY(pzv, *(ppzv));	\
 	zval_copy_ctor((pzv));
