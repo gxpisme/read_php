@@ -81,6 +81,7 @@ typedef struct _zend_class_entry     zend_class_entry;
 typedef union  _zend_function        zend_function;
 typedef struct _zend_execute_data    zend_execute_data;
 
+// 变量的值存储到以下所示zval结构体中
 typedef struct _zval_struct     zval;
 
 typedef struct _zend_refcounted zend_refcounted;
@@ -156,16 +157,17 @@ typedef uintptr_t zend_type;
 #define ZEND_TYPE_ENCODE_CLASS_CONST(class_name, allow_null) \
 	ZEND_TYPE_ENCODE_CLASS_CONST_Q1(allow_null, class_name)
 
+// 从zend_value可以看出，除long、double类型直接存储值外，其它类型都为指针，指向各自的结构。
 typedef union _zend_value {
-	zend_long         lval;				/* long value */
-	double            dval;				/* double value */
+	zend_long         lval;				/* long value  int整型*/
+	double            dval;				/* double value float型*/
 	zend_refcounted  *counted;
-	zend_string      *str;
-	zend_array       *arr;
-	zend_object      *obj;
-	zend_resource    *res;
-	zend_reference   *ref;
-	zend_ast_ref     *ast;
+	zend_string      *str;              // string 字符串
+	zend_array       *arr;              // array  数组
+	zend_object      *obj;              // object 对象
+	zend_resource    *res;              // resource 资源类型
+	zend_reference   *ref;              // 引用类型 通过 &$var_name定义
+	zend_ast_ref     *ast;              // 下面几个都是内核使用的value
 	zval             *zv;
 	void             *ptr;
 	zend_class_entry *ce;
@@ -176,20 +178,26 @@ typedef union _zend_value {
 	} ww;
 } zend_value;
 
+/*
+ * zval结构比较简单，内嵌一个union类型的zend_value保存具体变量类型的值或指针，zval中还有两个union：u1、u2
+ * u1  变量类型就通过u1.v.type区分，另外一个值type_flags为类型掩码，在变量的内存管理，gc机制中会用到
+ * u2  辅助值  假如zval只有value、u1两个值，整个zval的大小也会对齐到16byte，
+ *             既然不管有没有u2大小都是16byte,把多于的4byte拿出来用于一些特殊用途还是很划算的，比如next在哈希表解决哈希冲突时会用到，还有fe_pos在foreach中用到
+ */
 struct _zval_struct {
-	zend_value        value;			/* value */
+	zend_value        value;			/* value 变量实际的value */
 	union {
 		struct {
-			ZEND_ENDIAN_LOHI_4(
-				zend_uchar    type,			/* active type */
-				zend_uchar    type_flags,
+			ZEND_ENDIAN_LOHI_4(             // 这个是为了兼容大小字节序，小字节序就是下面的顺序，大字节序则下面4个顺序翻转
+				zend_uchar    type,			/* active type  变量类型*/
+				zend_uchar    type_flags,   // 类型掩码，不同的类型会有不同的几个属性，内存管理会用到
 				zend_uchar    const_flags,
-				zend_uchar    reserved)	    /* call info for EX(This) */
+				zend_uchar    reserved)	    /* call info for EX(This) zend执行流程会用到 */
 		} v;
-		uint32_t type_info;
+		uint32_t type_info;                 // 上面4个值的组合值，可以直接根据type_info取到4个对应位置的值
 	} u1;
 	union {
-		uint32_t     next;                 /* hash collision chain */
+		uint32_t     next;                 /* hash collision chain 哈希表中解决哈希冲突时用到的 */
 		uint32_t     cache_slot;           /* literal cache slot */
 		uint32_t     lineno;               /* line number (for ast nodes) */
 		uint32_t     num_args;             /* arguments number for EX(This) */
@@ -198,7 +206,7 @@ struct _zval_struct {
 		uint32_t     access_flags;         /* class constant access flags */
 		uint32_t     property_guard;       /* single property guard */
 		uint32_t     extra;                /* not further specified */
-	} u2;
+	} u2; // 一些辅助值
 };
 
 typedef struct _zend_refcounted_h {
@@ -218,23 +226,26 @@ struct _zend_refcounted {
 	zend_refcounted_h gc;
 };
 
+// PHP中字符串通过zend_string表示
 struct _zend_string {
-	zend_refcounted_h gc;
-	zend_ulong        h;                /* hash value */
-	size_t            len;
-	char              val[1];
+	zend_refcounted_h gc;               // 变量引用信息，比如当前value的引用数，所有用到引用计数的变量类型都会有这个结构
+	zend_ulong        h;                /* hash value 哈希值，数组中计算索引时会用到 */
+	size_t            len;              // 字符串长度，通过这个值保持二进制安全
+	char              val[1];           // 字符串内容，变长struct，分配时按len长度申请内存
 };
 
+// Bucket：散列表中存储的元素
 typedef struct _Bucket {
-	zval              val;
-	zend_ulong        h;                /* hash value (or numeric index)   */
-	zend_string      *key;              /* string key or NULL for numerics */
+	zval              val;              // 存储的具体value，这里嵌入一个zval结构
+	zend_ulong        h;                /* key根据哈希算法计算得到的哈希值 或者是数字索引编号  hash value (or numeric index)   */
+	zend_string      *key;              /* 存储元素的key  string key or NULL for numerics */
 } Bucket;
 
 typedef struct _zend_array HashTable;
 
+// array是PHP中非常强大的一个数据结构，它的底层实现就是普通有序HashTable
 struct _zend_array {
-	zend_refcounted_h gc;
+	zend_refcounted_h gc;   // 引用计数，与字符串相同
 	union {
 		struct {
 			ZEND_ENDIAN_LOHI_4(
@@ -245,12 +256,12 @@ struct _zend_array {
 		} v;
 		uint32_t flags;
 	} u;
-	uint32_t          nTableMask;
-	Bucket           *arData;
-	uint32_t          nNumUsed;
-	uint32_t          nNumOfElements;
-	uint32_t          nTableSize;
-	uint32_t          nInternalPointer;
+	uint32_t          nTableMask;   // 计算bucket索引时的掩码
+	Bucket           *arData;       // bucket 数组
+	uint32_t          nNumUsed;     // 已用bucket数
+	uint32_t          nNumOfElements; // 已有元素数，nNumOfElements <= nNumUsed，因为删除的并不是直接从arData中移除
+	uint32_t          nTableSize;     // 数组的大小 为2^n
+	uint32_t          nInternalPointer; // 数值索引
 	zend_long         nNextFreeElement;
 	dtor_func_t       pDestructor;
 };
@@ -332,15 +343,19 @@ typedef struct _HashTableIterator {
 	HashPosition  pos;
 } HashTableIterator;
 
+
+// 对象
 struct _zend_object {
 	zend_refcounted_h gc;
 	uint32_t          handle; // TODO: may be removed ???
-	zend_class_entry *ce;
+	zend_class_entry *ce;     // 对象对应的class类
 	const zend_object_handlers *handlers;
-	HashTable        *properties;
+	HashTable        *properties;   // 对象属性hash表
 	zval              properties_table[1];
 };
 
+// 资源
+// tcp链接、文件句柄
 struct _zend_resource {
 	zend_refcounted_h gc;
 	int               handle; // TODO: may be removed ???
@@ -348,6 +363,11 @@ struct _zend_resource {
 	void             *ptr;
 };
 
+// 引用
+// 引用时PHP中特殊的一种类型，它实际是指向另外一个PHP变量，对它的修改会直接改动实际指向的zval，可以简单的理解为C中的指针
+// 在PHP中通过&操作符产生一个引用变量，也就是说不管以前的类型是什么，&首先会创建一个zend_reference结构，其内嵌了一个zval
+// 这个zval的value指向原来zval的value（如果是bool、int、float）直接复制原来的值
+// 然后将原zval类型修改为IS_REFERENCE，原zval的value指向新创建的zend_reference结构
 struct _zend_reference {
 	zend_refcounted_h gc;
 	zval              val;

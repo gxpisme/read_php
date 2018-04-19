@@ -85,6 +85,7 @@ static void _zend_is_inconsistent(const HashTable *ht, const char *file, int lin
 		ZEND_HASH_DEC_APPLY_COUNT(ht);													\
 	}
 
+// hashTable判断是否需要扩容并扩容
 #define ZEND_HASH_IF_FULL_DO_RESIZE(ht)				\
 	if ((ht)->nNumUsed >= (ht)->nTableSize) {		\
 		zend_hash_do_resize(ht);					\
@@ -170,6 +171,7 @@ static zend_always_inline void zend_hash_check_init(HashTable *ht, int packed)
 static const uint32_t uninitialized_bucket[-HT_MIN_MASK] =
 	{HT_INVALID_IDX, HT_INVALID_IDX};
 
+// hash Table 初始化
 ZEND_API void ZEND_FASTCALL _zend_hash_init(HashTable *ht, uint32_t nSize, dtor_func_t pDestructor, zend_bool persistent ZEND_FILE_LINE_DC)
 {
 	GC_REFCOUNT(ht) = 1;
