@@ -853,9 +853,11 @@ static void ZEND_FASTCALL zend_hash_do_resize(HashTable *ht)
 	HT_ASSERT_RC1(ht);
 
 	if (ht->nNumUsed > ht->nNumOfElements + (ht->nNumOfElements >> 5)) { /* additional term is there to amortize the cost of compaction */
-		zend_hash_rehash(ht);
+        // 只有到一定阈值才进行rehash
+		zend_hash_rehash(ht); // 重建索引数组
 	} else if (ht->nTableSize < HT_MAX_SIZE) {	/* Let's double the table size */
 		void *new_data, *old_data = HT_GET_DATA_ADDR(ht);
+        // 扩大为2倍，加法要比乘法快
 		uint32_t nSize = ht->nTableSize + ht->nTableSize;
 		Bucket *old_buckets = ht->arData;
 
