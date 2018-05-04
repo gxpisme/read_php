@@ -85,7 +85,7 @@ static void _zend_is_inconsistent(const HashTable *ht, const char *file, int lin
 		ZEND_HASH_DEC_APPLY_COUNT(ht);													\
 	}
 
-// hashTable判断是否需要扩容并扩容
+// hashTable判断是否需要扩容并扩容 hashTable最多可存储nTableSize个元素
 #define ZEND_HASH_IF_FULL_DO_RESIZE(ht)				\
 	if ((ht)->nNumUsed >= (ht)->nTableSize) {		\
 		zend_hash_do_resize(ht);					\
@@ -134,11 +134,15 @@ static zend_always_inline void zend_hash_real_init_ex(HashTable *ht, int packed)
 	ZEND_ASSERT(!((ht)->u.flags & HASH_FLAG_INITIALIZED));
 	if (packed) {
 		HT_SET_DATA_ADDR(ht, pemalloc(HT_SIZE(ht), (ht)->u.flags & HASH_FLAG_PERSISTENT));
+        //(ht)->u.flags 打上HASH_FLAG_INITIALIZED掩码
 		(ht)->u.flags |= HASH_FLAG_INITIALIZED | HASH_FLAG_PACKED;
 		HT_HASH_RESET_PACKED(ht);
 	} else {
+        //设置nTableMask
 		(ht)->nTableMask = -(ht)->nTableSize;
+        //分配Bucket数组及映射数组
 		HT_SET_DATA_ADDR(ht, pemalloc(HT_SIZE(ht), (ht)->u.flags & HASH_FLAG_PERSISTENT));
+        //(ht)->u.flags 打上HASH_FLAG_INITIALIZED掩码
 		(ht)->u.flags |= HASH_FLAG_INITIALIZED;
 		if (EXPECTED(ht->nTableMask == (uint32_t)-8)) {
 			Bucket *arData = ht->arData;
@@ -157,14 +161,17 @@ static zend_always_inline void zend_hash_real_init_ex(HashTable *ht, int packed)
 	}
 }
 
+//判断初始化 并分配arData内存
 static zend_always_inline void zend_hash_check_init(HashTable *ht, int packed)
 {
 	HT_ASSERT_RC1(ht);
+    //分配完后(ht)->u.flags 打上HASH_FLAG_INITIALIZED掩码
 	if (UNEXPECTED(!((ht)->u.flags & HASH_FLAG_INITIALIZED))) {
 		zend_hash_real_init_ex(ht, packed);
 	}
 }
 
+//判断初始化 并分配arData内存
 #define CHECK_INIT(ht, packed) \
 	zend_hash_check_init(ht, packed)
 
@@ -471,6 +478,7 @@ ZEND_API void ZEND_FASTCALL _zend_hash_iterators_update(HashTable *ht, HashPosit
 	}
 }
 
+// Hash Table 查找
 static zend_always_inline Bucket *zend_hash_find_bucket(const HashTable *ht, zend_string *key)
 {
 	zend_ulong h;
@@ -478,20 +486,27 @@ static zend_always_inline Bucket *zend_hash_find_bucket(const HashTable *ht, zen
 	uint32_t idx;
 	Bucket *p, *arData;
 
+    // 将字符串获得数字
 	h = zend_string_hash_val(key);
 	arData = ht->arData;
+    //计算散列值
 	nIndex = h | ht->nTableMask;
+    //获取Bucket存储位置
 	idx = HT_HASH_EX(arData, nIndex);
+    //遍历
 	while (EXPECTED(idx != HT_INVALID_IDX)) {
+        //通过idx获取值
 		p = HT_HASH_TO_BUCKET_EX(arData, idx);
+        // key是string string与需要查找的相等
 		if (EXPECTED(p->key == key)) { /* check for the same interned string */
 			return p;
-		} else if (EXPECTED(p->h == h) &&
+		} else if (EXPECTED(p->h == h) && // 比较hash code
 		     EXPECTED(p->key) &&
-		     EXPECTED(ZSTR_LEN(p->key) == ZSTR_LEN(key)) &&
-		     EXPECTED(memcmp(ZSTR_VAL(p->key), ZSTR_VAL(key), ZSTR_LEN(key)) == 0)) {
+		     EXPECTED(ZSTR_LEN(p->key) == ZSTR_LEN(key)) && // 比较key的长度
+		     EXPECTED(memcmp(ZSTR_VAL(p->key), ZSTR_VAL(key), ZSTR_LEN(key)) == 0)) { // 比较查找的key与Bucket的key是否匹配
 			return p;
 		}
+        // 哈希冲突 循环链表
 		idx = Z_NEXT(p->val);
 	}
 	return NULL;
@@ -551,6 +566,7 @@ static zend_always_inline zval *_zend_hash_add_or_update_i(HashTable *ht, zend_s
 	HT_ASSERT_RC1(ht);
 
 	if (UNEXPECTED(!(ht->u.flags & HASH_FLAG_INITIALIZED))) {
+        // 未初始化，数组未分配arData内存
 		CHECK_INIT(ht, 0);
 		goto add_to_hash;
 	} else if (ht->u.flags & HASH_FLAG_PACKED) {
@@ -593,6 +609,7 @@ static zend_always_inline zval *_zend_hash_add_or_update_i(HashTable *ht, zend_s
 	ZEND_HASH_IF_FULL_DO_RESIZE(ht);		/* If the Hash table is full, resize it */
 
 add_to_hash:
+    //添加元素到hash表中
 	idx = ht->nNumUsed++;
 	ht->nNumOfElements++;
 	if (ht->nInternalPointer == HT_INVALID_IDX) {
@@ -608,8 +625,12 @@ add_to_hash:
 	}
 	p->h = h = ZSTR_H(key);
 	ZVAL_COPY_VALUE(&p->val, pData);
+    //计算中间映射表的散列值，idx将保存在映射数组的nIndex位置
 	nIndex = h | ht->nTableMask;
+    //将映射表中原来的值保存到新Bucket中，HT_HASH(ht, nIndex)这个函数得到的值映射表中存储的idx值,将idx值放到新的bucket(新bucket就是 刚刚生成的)的next字段中  哈希冲突时会用到
+    //哈希不冲突的情况下HT_HASH(ht, nIndex)得到的值为-1
 	Z_NEXT(p->val) = HT_HASH(ht, nIndex);
+    //在映射表中保存idx的值
 	HT_HASH(ht, nIndex) = HT_IDX_TO_HASH(idx);
 
 	return &p->val;
@@ -846,6 +867,15 @@ ZEND_API zval* ZEND_FASTCALL _zend_hash_next_index_insert_new(HashTable *ht, zva
 	return _zend_hash_index_add_or_update_i(ht, ht->nNextFreeElement, pData, HASH_ADD | HASH_ADD_NEW | HASH_ADD_NEXT ZEND_FILE_LINE_RELAY_CC);
 }
 
+/*hash Table 扩容
+首先检查数组中已经删除的元素所占的比例
+  达到阈值
+      把删除的Bucket移除，然后把后面的Bucket往前移补空缺的Bucket
+  未达到阈值
+      分配一个原数组大小2被的新数组，然后把原数组的元素复制到新数组上，最后重建索引
+
+阈值计算：ht->nNumUsed > ht->nNumOfElements + (ht->nNumOfElements >> 5)
+*/
 static void ZEND_FASTCALL zend_hash_do_resize(HashTable *ht)
 {
 
@@ -861,18 +891,27 @@ static void ZEND_FASTCALL zend_hash_do_resize(HashTable *ht)
 		uint32_t nSize = ht->nTableSize + ht->nTableSize;
 		Bucket *old_buckets = ht->arData;
 
+        //新分配arData空间 大小为(sizeof(Bucket)+sizeof(uint32_t)) * nSize
 		new_data = pemalloc(HT_SIZE_EX(nSize, -nSize), ht->u.flags & HASH_FLAG_PERSISTENT);
 		ht->nTableSize = nSize;
 		ht->nTableMask = -ht->nTableSize;
+        //将arData指针偏移到Bucket数组起始位置
 		HT_SET_DATA_ADDR(ht, new_data);
+        //将旧的bucket数组赋值到新的空间
 		memcpy(ht->arData, old_buckets, sizeof(Bucket) * ht->nNumUsed);
+        //释放旧的空间
 		pefree(old_data, ht->u.flags & HASH_FLAG_PERSISTENT);
+        //重建索引
 		zend_hash_rehash(ht);
 	} else {
 		zend_error_noreturn(E_ERROR, "Possible integer overflow in memory allocation (%u * %zu + %zu)", ht->nTableSize * 2, sizeof(Bucket) + sizeof(uint32_t), sizeof(Bucket));
 	}
 }
 
+/**
+ * hashTable 重建索引
+ * 映射表到实际存储位置的索引关系
+ */
 ZEND_API int ZEND_FASTCALL zend_hash_rehash(HashTable *ht)
 {
 	Bucket *p;
@@ -891,10 +930,13 @@ ZEND_API int ZEND_FASTCALL zend_hash_rehash(HashTable *ht)
 	HT_HASH_RESET(ht);
 	i = 0;
 	p = ht->arData;
+    // 都是紧密的数据 没有空隙 没有删除的数据
 	if (HT_IS_WITHOUT_HOLES(ht)) {
 		do {
 			nIndex = p->h | ht->nTableMask;
+            //将映射表中原来的值保存到新Bucket中，HT_HASH(ht, nIndex)这个函数得到的值映射表中存储的idx值,将idx值放到新的bucket(新bucket就是 刚刚生成的)的next字段中  哈希冲突时会用到
 			Z_NEXT(p->val) = HT_HASH(ht, nIndex);
+            //在映射表中保存idx的值
 			HT_HASH(ht, nIndex) = HT_IDX_TO_HASH(i);
 			p++;
 		} while (++i < ht->nNumUsed);
