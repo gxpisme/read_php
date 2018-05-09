@@ -60,6 +60,7 @@
 #define GC_INFO_SET_PURPLE(v) \
 	do {(v) = (v) | GC_COLOR;} while (0)
 
+//双向链表
 typedef struct _gc_root_buffer {
 	zend_refcounted          *ref;
 	struct _gc_root_buffer   *next;     /* double-linked list               */
@@ -78,22 +79,24 @@ struct _gc_additional_bufer {
 	gc_root_buffer        buf[GC_NUM_ADDITIONAL_ENTRIES];
 };
 
+// 该struct对垃圾进行管理
+// 收集到的可能成为垃圾的value就保存在这个结构的buf中，即垃圾缓存区
 typedef struct _zend_gc_globals {
-	zend_bool         gc_enabled;
-	zend_bool         gc_active;
-	zend_bool         gc_full;
+	zend_bool         gc_enabled;       // 是否启用gc
+	zend_bool         gc_active;        // 是否在垃圾检查过程中
+	zend_bool         gc_full;          // 缓存区是否已满
 
-	gc_root_buffer   *buf;				/* preallocated arrays of buffers   */
-	gc_root_buffer    roots;			/* list of possible roots of cycles */
-	gc_root_buffer   *unused;			/* list of unused buffers           */
-	gc_root_buffer   *first_unused;		/* pointer to first unused buffer   */
-	gc_root_buffer   *last_unused;		/* pointer to last unused buffer    */
+	gc_root_buffer   *buf;				/* preallocated arrays of buffers  启动时分配的用于保存可能垃圾的缓存区 */
+	gc_root_buffer    roots;			/* list of possible roots of cycles 指向buf中最新加入的一个可能垃圾*/
+	gc_root_buffer   *unused;			/* list of unused buffers           指向buf中没有使用的buffer*/
+	gc_root_buffer   *first_unused;		/* pointer to first unused buffer   指向buf中第一个没有使用的buffer*/
+	gc_root_buffer   *last_unused;		/* pointer to last unused buffer    指向buf尾部*/
 
-	gc_root_buffer    to_free;			/* list to free                     */
+	gc_root_buffer    to_free;			/* list to free                     待释放的垃圾*/
 	gc_root_buffer   *next_to_free;
 
-	uint32_t gc_runs;
-	uint32_t collected;
+	uint32_t gc_runs;                   // 统计gc运行的次数
+	uint32_t collected;                 // 统计已回收的垃圾数
 
 #if GC_BENCH
 	uint32_t root_buf_length;
@@ -144,6 +147,7 @@ END_EXTERN_C()
 		(GC_INFO_MASK | (GC_COLLECTABLE << GC_FLAGS_SHIFT))) == \
 	(GC_COLLECTABLE << GC_FLAGS_SHIFT))
 
+// 垃圾收集器收集
 static zend_always_inline void gc_check_possible_root(zend_refcounted *ref)
 {
 	if (GC_TYPE(ref) == IS_REFERENCE) {

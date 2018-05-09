@@ -287,6 +287,7 @@ ZEND_API int ZEND_FASTCALL zend_object_is_true(zval *op);
 #define zval_is_true(op) \
 	zend_is_true(op)
 
+// 该方法用于判断不同类型的zval是否为TRUE，在需要布尔型的使用场景中会调用该方法进行判断
 static zend_always_inline int i_zend_is_true(zval *op)
 {
 	int result = 0;

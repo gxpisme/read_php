@@ -432,6 +432,7 @@ try_again:
 
 ZEND_API void ZEND_FASTCALL convert_to_null(zval *op) /* {{{ */
 {
+    //销毁zval，将类型设置为NULL
 	zval_ptr_dtor(op);
 	ZVAL_NULL(op);
 }
@@ -466,6 +467,7 @@ try_again:
 			{
 				zend_string *str = Z_STR_P(op);
 
+                //非空字符串及“0”外都为true
 				if (ZSTR_LEN(str) == 0
 					|| (ZSTR_LEN(str) == 1 && ZSTR_VAL(str)[0] == '0')) {
 					ZVAL_FALSE(op);
@@ -476,6 +478,7 @@ try_again:
 			}
 			break;
 		case IS_ARRAY:
+            //非空数组为true
 			tmp = (zend_hash_num_elements(Z_ARRVAL_P(op))?1:0);
 			zval_ptr_dtor(op);
 			ZVAL_BOOL(op, tmp);
@@ -577,18 +580,20 @@ try_again:
 }
 /* }}} */
 
+//其他标量类型转array
 static void convert_scalar_to_array(zval *op) /* {{{ */
 {
 	zval entry;
 
 	ZVAL_COPY_VALUE(&entry, op);
-
+    //新分配一个数组，将原值插入数组
 	ZVAL_NEW_ARR(op);
 	zend_hash_init(Z_ARRVAL_P(op), 8, NULL, ZVAL_PTR_DTOR, 0);
 	zend_hash_index_add_new(Z_ARRVAL_P(op), 0, &entry);
 }
 /* }}} */
 
+//转化为数组
 ZEND_API void ZEND_FASTCALL convert_to_array(zval *op) /* {{{ */
 {
 try_again:
@@ -601,7 +606,9 @@ try_again:
 				convert_scalar_to_array(op);
 			} else {
 				if (Z_OBJ_HT_P(op)->get_properties) {
+                    //获取所有属性数组
 					HashTable *obj_ht = Z_OBJ_HT_P(op)->get_properties(op);
+                    //将数组内容复制到新数组
 					if (obj_ht) {
 						zend_array *arr;
 
@@ -635,6 +642,7 @@ try_again:
 			break;
 		case IS_NULL:
 			ZVAL_NEW_ARR(op);
+            //转为空数组
 			zend_hash_init(Z_ARRVAL_P(op), 8, NULL, ZVAL_PTR_DTOR, 0);
 			break;
 		case IS_REFERENCE:
@@ -730,6 +738,7 @@ ZEND_API void multi_convert_to_string_ex(int argc, ...) /* {{{ */
 }
 /* }}} */
 
+// 将不同类型zval转为整型后的值
 static zend_always_inline zend_long ZEND_FASTCALL _zval_get_long_func_ex(zval *op, zend_bool silent) /* {{{ */
 {
 try_again:

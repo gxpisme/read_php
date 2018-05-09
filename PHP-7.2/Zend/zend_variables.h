@@ -41,13 +41,17 @@ static zend_always_inline void _zval_ptr_dtor_nogc(zval *zval_ptr ZEND_FILE_LINE
 	}
 }
 
+// 销毁一个zval 会调用i_zval_ptr_dtor进行处理
 static zend_always_inline void i_zval_ptr_dtor(zval *zval_ptr ZEND_FILE_LINE_DC)
 {
+    // 不使用引用计数的类型不需要进行回收
 	if (Z_REFCOUNTED_P(zval_ptr)) {
 		zend_refcounted *ref = Z_COUNTED_P(zval_ptr);
 		if (!--GC_REFCOUNT(ref)) {
+            //refcount 减一后变为0 不是垃圾 正常回收
 			_zval_dtor_func(ref ZEND_FILE_LINE_RELAY_CC);
 		} else {
+            // refcount减一 后仍然大于0
 			gc_check_possible_root(ref);
 		}
 	}

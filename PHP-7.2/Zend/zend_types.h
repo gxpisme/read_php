@@ -210,13 +210,13 @@ struct _zval_struct {
 };
 
 typedef struct _zend_refcounted_h {
-	uint32_t         refcount;			/* reference counter 32-bit */
+	uint32_t         refcount;			/* reference counter 32-bit 引用计数*/
 	union {
 		struct {
 			ZEND_ENDIAN_LOHI_3(
-				zend_uchar    type,
+				zend_uchar    type,     /* 类型 */
 				zend_uchar    flags,    /* used for strings & objects */
-				uint16_t      gc_info)  /* keeps GC root number (or 0) and color */
+				uint16_t      gc_info)  /* 垃圾回收时用到 keeps GC root number (or 0) and color */
 		} v;
 		uint32_t type_info;
 	} u;

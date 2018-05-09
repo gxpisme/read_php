@@ -249,15 +249,20 @@ ZEND_API void gc_reset(void)
 	GC_G(additional_buffer) = NULL;
 }
 
+// 初始化垃圾回收器
 ZEND_API void gc_init(void)
 {
 	if (GC_G(buf) == NULL && GC_G(gc_enabled)) {
+		// 分配buf缓存区内存，大小为GC_ROOT_BUFFER_MAX_ENTRIES 10001，其中第1个保留不被使用
 		GC_G(buf) = (gc_root_buffer*) malloc(sizeof(gc_root_buffer) * GC_ROOT_BUFFER_MAX_ENTRIES);
+		// last_unused 指向尾部
 		GC_G(last_unused) = &GC_G(buf)[GC_ROOT_BUFFER_MAX_ENTRIES];
 		gc_reset();
 	}
 }
 
+// 收集时首先会从buf中选择一个空闲节点，然后将value的gc保存到这个节点中，
+// 如果没有空闲节点则表明回收器已经满了，这个时候会触发垃圾鉴定、回收的程序
 ZEND_API void ZEND_FASTCALL gc_possible_root(zend_refcounted *ref)
 {
 	gc_root_buffer *newRoot;
@@ -266,19 +271,25 @@ ZEND_API void ZEND_FASTCALL gc_possible_root(zend_refcounted *ref)
 		return;
 	}
 
+	//插入的节点必须是数组或者对象
 	ZEND_ASSERT(GC_TYPE(ref) == IS_ARRAY || GC_TYPE(ref) == IS_OBJECT);
+	//插入的节点必须是GC_BLACK 防止重复插入
 	ZEND_ASSERT(EXPECTED(GC_REF_GET_COLOR(ref) == GC_BLACK));
 	ZEND_ASSERT(!GC_ADDRESS(GC_INFO(ref)));
 
 	GC_BENCH_INC(zval_possible_root);
 
+	//unused中有无可用的
 	newRoot = GC_G(unused);
 	if (newRoot) {
+		//有的话先用unused 然后将GC_G(unused)指向单链表的下一个
 		GC_G(unused) = newRoot->prev;
 	} else if (GC_G(first_unused) != GC_G(last_unused)) {
+		//unused没有可用的，但buf中有
 		newRoot = GC_G(first_unused);
 		GC_G(first_unused)++;
 	} else {
+		//缓存区已满
 		if (!GC_G(gc_enabled)) {
 			return;
 		}
@@ -305,10 +316,12 @@ ZEND_API void ZEND_FASTCALL gc_possible_root(zend_refcounted *ref)
 		GC_G(unused) = newRoot->prev;
 	}
 
+	//将插入的ref标记为紫色，防止重复插入
 	GC_TRACE_SET_COLOR(ref, GC_PURPLE);
 	GC_INFO(ref) = (newRoot - GC_G(buf)) | GC_PURPLE;
 	newRoot->ref = ref;
 
+	//插入roots链表头部
 	newRoot->next = GC_G(roots).next;
 	newRoot->prev = &GC_G(roots);
 	GC_G(roots).next->prev = newRoot;
@@ -1053,8 +1066,10 @@ ZEND_API int zend_gc_collect_cycles(void)
 		GC_G(gc_runs)++;
 		GC_G(gc_active) = 1;
 
+		//遍历roots链表 对当前节点value的所有成员 数组元素、成员属性进行深度优先遍历，把成员refcount减1
 		GC_TRACE("Marking roots");
 		gc_mark_roots();
+		//再次遍历roots链表 检查各节点当前refcount是否为0 是的话标为白色 表示为垃圾 不是的话需要还原 把refcount再加回去
 		GC_TRACE("Scanning roots");
 		gc_scan_roots();
 
@@ -1065,6 +1080,7 @@ ZEND_API int zend_gc_collect_cycles(void)
 
 		GC_TRACE("Collecting roots");
 		additional_buffer_snapshot = GC_G(additional_buffer);
+		//将roots链表中的非白色节点删除，之后roots链表中全部是真正的垃圾，将垃圾链表转到to_free等待释放
 		count = gc_collect_roots(&gc_flags);
 #if ZEND_GC_DEBUG
 		GC_G(gc_full) = orig_gc_full;

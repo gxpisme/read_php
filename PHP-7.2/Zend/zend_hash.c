@@ -181,16 +181,21 @@ static const uint32_t uninitialized_bucket[-HT_MIN_MASK] =
 // hash Table 初始化
 ZEND_API void ZEND_FASTCALL _zend_hash_init(HashTable *ht, uint32_t nSize, dtor_func_t pDestructor, zend_bool persistent ZEND_FILE_LINE_DC)
 {
+    // 初始化gc信息
 	GC_REFCOUNT(ht) = 1;
 	GC_TYPE_INFO(ht) = IS_ARRAY | (persistent ? 0 : (GC_COLLECTABLE << GC_FLAGS_SHIFT));
+    // 设置flags
 	ht->u.flags = (persistent ? HASH_FLAG_PERSISTENT : 0) | HASH_FLAG_APPLY_PROTECTION | HASH_FLAG_STATIC_KEYS;
+    //nTableMask的值是临时的
 	ht->nTableMask = HT_MIN_MASK;
+    //临时设置ht->arData
 	HT_SET_DATA_ADDR(ht, &uninitialized_bucket);
 	ht->nNumUsed = 0;
 	ht->nNumOfElements = 0;
 	ht->nInternalPointer = HT_INVALID_IDX;
 	ht->nNextFreeElement = 0;
 	ht->pDestructor = pDestructor;
+    //这里会把数组大小设置为2的幂次方
 	ht->nTableSize = zend_hash_check_size(nSize);
 }
 
