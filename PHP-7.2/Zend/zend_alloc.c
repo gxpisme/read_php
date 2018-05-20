@@ -229,6 +229,7 @@ int zend_mm_use_huge_pages = 0;
  *               2 for 5-8, 3 for 9-16 etc) see zend_alloc_sizes.h
  */
 
+// 内存池通过这个结构存储内存池的主要信息
 struct _zend_mm_heap {
 #if ZEND_MM_CUSTOM
 	int                use_custom_heap;
@@ -237,9 +238,10 @@ struct _zend_mm_heap {
 	zend_mm_storage   *storage;
 #endif
 #if ZEND_MM_STAT
-	size_t             size;                    /* current memory usage */
-	size_t             peak;                    /* peak memory usage */
+	size_t             size;                    /* current memory usage 当前已用内存数  */
+	size_t             peak;                    /* peak memory usage 内存单次申请的峰值 */
 #endif
+    // 小内存分配的可用位置链表，ZEND_MM_BINS等于30，即此数组表示的是各种大小内存对应的链表头部
 	zend_mm_free_slot *free_slot[ZEND_MM_BINS]; /* free lists for small sizes */
 #if ZEND_MM_STAT || ZEND_MM_LIMIT
 	size_t             real_size;               /* current size of allocated pages */
@@ -252,13 +254,20 @@ struct _zend_mm_heap {
 	int                overflow;                /* memory overflow flag */
 #endif
 
+    // 大内存链表
 	zend_mm_huge_list *huge_list;               /* list of huge allocated blocks */
 
+    // 指向chunk链表的头部
 	zend_mm_chunk     *main_chunk;
+    // 已经缓存的链表
 	zend_mm_chunk     *cached_chunks;			/* list of unused chunks */
+    //已分配chunk数
 	int                chunks_count;			/* number of alocated chunks */
+    //当前request 使用 chunk峰值
 	int                peak_chunks_count;		/* peak number of allocated chunks for current request */
+    // 缓存的chunk数
 	int                cached_chunks_count;		/* number of cached chunks */
+    // chunk使用均值，每次请求结束后会根据peak_chunks_count重新计算
 	double             avg_chunks_count;		/* average number of chunks allocated per request */
 	int                last_chunks_delete_boundary; /* numer of chunks after last deletion */
 	int                last_chunks_delete_count;    /* number of deletion over the last boundary */
@@ -307,6 +316,7 @@ struct _zend_mm_free_slot {
 	zend_mm_free_slot *next_free_slot;
 };
 
+// 大内存的数据结构  大内存之间构成一个单向链表
 struct _zend_mm_huge_list {
 	void              *ptr;
 	size_t             size;
@@ -2302,6 +2312,7 @@ typedef struct _zend_alloc_globals {
 static int alloc_globals_id;
 # define AG(v) ZEND_TSRMG(alloc_globals_id, zend_alloc_globals *, v)
 #else
+// AG宏操作alloc_globals的变量
 # define AG(v) (alloc_globals.v)
 static zend_alloc_globals alloc_globals;
 #endif

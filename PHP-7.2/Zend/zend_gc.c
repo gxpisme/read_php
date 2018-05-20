@@ -253,7 +253,7 @@ ZEND_API void gc_reset(void)
 ZEND_API void gc_init(void)
 {
 	if (GC_G(buf) == NULL && GC_G(gc_enabled)) {
-		// 分配buf缓存区内存，大小为GC_ROOT_BUFFER_MAX_ENTRIES 10001，其中第1个保留不被使用
+		// 分配buf缓存区内存，大小为GC_ROOT_BUFFER_MAX_ENTRIES 10001，其中第1个保留不被使用  buf是一个双向链表
 		GC_G(buf) = (gc_root_buffer*) malloc(sizeof(gc_root_buffer) * GC_ROOT_BUFFER_MAX_ENTRIES);
 		// last_unused 指向尾部
 		GC_G(last_unused) = &GC_G(buf)[GC_ROOT_BUFFER_MAX_ENTRIES];
@@ -1053,7 +1053,7 @@ ZEND_API int zend_gc_collect_cycles(void)
 		zend_refcounted *p;
 		gc_root_buffer to_free;
 		uint32_t gc_flags = 0;
-		gc_additional_buffer *additional_buffer_snapshot;
+		gc_additional_buffe *additional_buffer_snapshot;
 #if ZEND_GC_DEBUG
 		zend_bool orig_gc_full;
 #endif
