@@ -721,6 +721,7 @@ int zend_startup(zend_utility_functions *utility_functions, char **extensions) /
 	php_win32_cp_set_by_id(65001);
 #endif
 
+    // 开始内存分配
 	start_memory_manager();
 
 	virtual_cwd_startup(); /* Could use shutdown to free the main cwd but it would just slow it down for CGI */
