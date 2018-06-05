@@ -741,7 +741,7 @@ static void *zend_mm_chunk_alloc_int(size_t size, size_t alignment)
 		/* chunk has to be aligned */
         // 释放申请的内存
 		zend_mm_munmap(ptr, size);
-        // 重新申请一块内存 这里会多申请一块内存 用于截取到alignment的整数倍
+        //重新申请一块内存，这里会多申请一块内存，用于截取到alignment的整数倍，可以忽略REAL_PAGE_SIZE
 		ptr = zend_mm_mmap(size + alignment - REAL_PAGE_SIZE);
 #ifdef _WIN32
 		offset = ZEND_MM_ALIGNED_OFFSET(ptr, alignment);
@@ -757,7 +757,9 @@ static void *zend_mm_chunk_alloc_int(size_t size, size_t alignment)
         // offset 为ptr距离上一个alignment对齐内存位置的大小
 		offset = ZEND_MM_ALIGNED_OFFSET(ptr, alignment);
 		if (offset != 0) {
+            // 该offset为alignment的整数倍
 			offset = alignment - offset;
+            // 释放多于的内存
 			zend_mm_munmap(ptr, offset);
             // 偏移ptr， 对齐到alignment
 			ptr = (char*)ptr + offset;
@@ -880,7 +882,9 @@ static void *zend_mm_alloc_pages(zend_mm_heap *heap, uint32_t pages_count ZEND_F
 	uint32_t page_num, len;
 	int steps = 0;
 
+    // 从第一个chunk开始查找可用page
 	while (1) {
+        // 当前chunk剩余page总数已不够
 		if (UNEXPECTED(chunk->free_pages < pages_count)) {
 			goto not_found;
 #if 0
@@ -931,10 +935,10 @@ static void *zend_mm_alloc_pages(zend_mm_heap *heap, uint32_t pages_count ZEND_F
 				tmp |= tmp - 1;
 			}
 #endif
-		} else {
+		} else { //查找当前chunk是否有pages_count个连续可用的page
 			/* Best-Fit Search */
-			int best = -1;
-			uint32_t best_len = ZEND_MM_PAGES;
+			int best = -1; //已找到可用page起始页
+			uint32_t best_len = ZEND_MM_PAGES; //已找到chunk的page间隙大小，这个值尽可能接近page_count
 			uint32_t free_tail = chunk->free_tail;
 			zend_mm_bitset *bitset = chunk->free_map;
 
@@ -942,6 +946,7 @@ static void *zend_mm_alloc_pages(zend_mm_heap *heap, uint32_t pages_count ZEND_F
 			zend_mm_bitset tmp = *(bitset++);
 			uint32_t i = 0;
 
+            // 下面就是查找最优page的过程
 			while (1) {
 				/* skip allocated blocks */
                 // -1 表示当前chunk所有page都已分配 11111111 11111111 11111111 11111111
@@ -999,6 +1004,7 @@ static void *zend_mm_alloc_pages(zend_mm_heap *heap, uint32_t pages_count ZEND_F
 		}
 
 not_found:
+        // 是否已到最后一个chunk
 		if (chunk->next == heap->main_chunk) {
 get_chunk:
 			if (heap->cached_chunks) {
@@ -1063,7 +1069,7 @@ get_chunk:
 		}
 	}
 
-found:
+found: //找到可用page，page编号为page_num至(page_num + pages_count)
 	if (steps > 2 && pages_count < 8) {
 		/* move chunk into the head of the linked-list */
 		chunk->prev->next = chunk->next;
@@ -1075,7 +1081,9 @@ found:
 	}
 	/* mark run as allocated */
 	chunk->free_pages -= pages_count;
+    // 将page_num至(page_num + pages_count)page的bit标识位设置为已分配
 	zend_mm_bitset_set_range(chunk->free_map, page_num, pages_count);
+    // map为两个值的组合值，首先表示当前page属于哪种类型，其次表示包含的page页数
 	chunk->map[page_num] = ZEND_MM_LRUN(pages_count);
 	if (page_num == chunk->free_tail) {
 		chunk->free_tail = page_num + pages_count;
@@ -1233,6 +1241,7 @@ static zend_always_inline int zend_mm_small_size_to_bin(size_t size)
 
 #define ZEND_MM_SMALL_SIZE_TO_BIN(size)  zend_mm_small_size_to_bin(size)
 
+// bin_num 为 free_slot 数组下
 static zend_never_inline void *zend_mm_alloc_small_slow(zend_mm_heap *heap, uint32_t bin_num ZEND_FILE_LINE_DC ZEND_FILE_LINE_ORIG_DC)
 {
     zend_mm_chunk *chunk;
@@ -1243,6 +1252,7 @@ static zend_never_inline void *zend_mm_alloc_small_slow(zend_mm_heap *heap, uint
 #if ZEND_DEBUG
 	bin = (zend_mm_bin*)zend_mm_alloc_pages(heap, bin_pages[bin_num], bin_data_size[bin_num] ZEND_FILE_LINE_RELAY_CC ZEND_FILE_LINE_ORIG_RELAY_CC);
 #else
+    // 分配固定数量的page
 	bin = (zend_mm_bin*)zend_mm_alloc_pages(heap, bin_pages[bin_num] ZEND_FILE_LINE_RELAY_CC ZEND_FILE_LINE_ORIG_RELAY_CC);
 #endif
 	if (UNEXPECTED(bin == NULL)) {
@@ -1252,6 +1262,7 @@ static zend_never_inline void *zend_mm_alloc_small_slow(zend_mm_heap *heap, uint
 
 	chunk = (zend_mm_chunk*)ZEND_MM_ALIGNED_BASE(bin, ZEND_MM_CHUNK_SIZE);
 	page_num = ZEND_MM_ALIGNED_OFFSET(bin, ZEND_MM_CHUNK_SIZE) / ZEND_MM_PAGE_SIZE;
+    // 设置各页的分配类型
 	chunk->map[page_num] = ZEND_MM_SRUN(bin_num);
 	if (bin_pages[bin_num] > 1) {
 		uint32_t i = 1;
@@ -1262,8 +1273,9 @@ static zend_never_inline void *zend_mm_alloc_small_slow(zend_mm_heap *heap, uint
 		} while (i < bin_pages[bin_num]);
 	}
 
-	/* create a linked list of elements from 1 to last */
+	/* create a linked list of elements from 1 to last 创建slot链表 */
 	end = (zend_mm_free_slot*)((char*)bin + (bin_data_size[bin_num] * (bin_elements[bin_num] - 1)));
+    // heap->free_slot[bin_num] 指向第2个slot，第1个为当前申请到的slot
 	heap->free_slot[bin_num] = p = (zend_mm_free_slot*)((char*)bin + bin_data_size[bin_num]);
 	do {
 		p->next_free_slot = (zend_mm_free_slot*)((char*)p + bin_data_size[bin_num]);
@@ -1285,7 +1297,7 @@ static zend_never_inline void *zend_mm_alloc_small_slow(zend_mm_heap *heap, uint
 		} while (0);
 #endif
 
-	/* return first element */
+	/* return first element  返回slot链表的第一个元素 */
 	return (char*)bin;
 }
 
@@ -1301,10 +1313,12 @@ static zend_always_inline void *zend_mm_alloc_small(zend_mm_heap *heap, size_t s
 #endif
 
 	if (EXPECTED(heap->free_slot[bin_num] != NULL)) {
+        // 有可用的slot
 		zend_mm_free_slot *p = heap->free_slot[bin_num];
 		heap->free_slot[bin_num] = p->next_free_slot;
 		return (void*)p;
 	} else {
+        // 新分配slot
 		return zend_mm_alloc_small_slow(heap, bin_num ZEND_FILE_LINE_RELAY_CC ZEND_FILE_LINE_ORIG_RELAY_CC);
 	}
 }
